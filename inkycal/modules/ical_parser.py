@@ -14,7 +14,7 @@ Copyright by aceisace
 """
 
 import arrow
-from urllib.request import urlopen
+import urllib
 import logging
 import time
 import os
@@ -48,36 +48,73 @@ class iCalendar:
     example: 'URL1' (single url) OR ['URL1', 'URL2'] (multiple URLs)
     add username and password to access protected files
     """
+    ical = []
+    #logger.debug(f"all urls: '{url}'") #may contain sensitive information
+    #make list if string
+    if type(url) == str:
+      url = [url]
 
     if type(url) == list:
-      if (username == None) and (password == None):
-        ical = [Calendar.from_ical(str(urlopen(_).read().decode()))
-                                   for _ in url]
-      else:
-        ical = [auth_ical(each_url, username, password) for each_url in url]
-    elif type(url) == str:
-      if (username == None) and (password == None):
-        ical = [Calendar.from_ical(str(urlopen(url).read().decode()))]
-      else:
-        ical = [auth_ical(url, username, password)]
+      #logger.debug(f"all urls (again): '{url}'") #may contain sensitive information
+      for u in url:
+        #remove leading whitespaces
+        u = u.lstrip()
+        #logger.debug(f"current url: '{u}'") #may contain sensitive information
+
+        #parse the url
+        parsed_url = urllib.parse.urlparse(u)
+        
+        #override global username with calendar specific username
+        if parsed_url.username is not None:
+          #extract username
+          username_act = parsed_url.username
+          logger.debug("extracted the username from url")
+        else:
+          #use global username
+          username_act = username
+          logger.debug("using the global username")
+        #logger.debug(f"username: '{username_act}'") #may contain sensitive information
+
+        #override global password with calendar specific password
+        if parsed_url.password is not None:
+          #extract password
+          password_act = parsed_url.password
+          logger.debug("extracted the password from url")
+        else:
+          #use global password
+          password_act = password
+          logger.debug("using the global password")
+        #logger.debug(f"password: '{password_act}'") #may contain sensitive information
+
+        #get parsed result without username/password (netloc just hostname)
+        parsed_url_without= parsed_url._replace(netloc=parsed_url.hostname)
+        #unparse url to get the original url without user/password
+        u = urllib.parse.urlunparse(parsed_url_without)
+        logger.debug(f"parsed url: '{u}'")
+
+        if (username_act == None) and (password_act == None):
+          #load unprotected calendar
+          ical.append(Calendar.from_ical(str(urllib.request.urlopen(u).read().decode())))
+        else:
+          #load password protected calendar
+          ical.append(self.auth_ical(u, username_act, password_act))
     else:
       raise Exception (f"Input: '{url}' is not a string or list!")
-
-
-    def auth_ical(url, uname, passwd):
-      """Authorisation helper for protected ical files"""
-
-      # Credit to Joshka
-      password_mgr = urllib.request.HTTPPasswordMgrWithDefaultRealm()
-      password_mgr.add_password(None, url, username, password)
-      handler = urllib.request.HTTPBasicAuthHandler(password_mgr)
-      opener = urllib.request.build_opener(handler)
-      ical = Calendar.from_ical(str(opener.open(url).read().decode()))
-      return ical
 
     # Add the parsed icalendar/s to the self.icalendars list
     if ical: self.icalendars += ical
     logger.info('loaded iCalendars from URLs')
+
+  def auth_ical(self, url, uname, passwd):
+    """Authorisation helper for protected ical files"""
+
+    # Credit to Joshka
+    password_mgr = urllib.request.HTTPPasswordMgrWithDefaultRealm()
+    password_mgr.add_password(None, url, uname, passwd)
+    handler = urllib.request.HTTPBasicAuthHandler(password_mgr)
+    opener = urllib.request.build_opener(handler)
+    ical = Calendar.from_ical(str(opener.open(url).read().decode()))
+    return ical
 
   def load_from_file(self, filepath):
     """Input a string or list of strings containing valid iCalendar filepaths

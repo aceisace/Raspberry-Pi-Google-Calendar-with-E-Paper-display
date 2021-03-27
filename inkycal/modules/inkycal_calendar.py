@@ -36,7 +36,7 @@ class Calendar(inkycal_module):
       },
 
     "ical_urls" : {
-      "label":"iCalendar URL/s, separate multiple ones with a comma",
+      "label":"iCalendar URL/s, separate multiple ones with a comma, e.g. http://example.com/calendar or with authentication: http://username:password@example.com/calendar. Please do not enter username/password in the WebUI. Add them afterwards in the json file manually.",
       },
 
     "ical_files" : {
