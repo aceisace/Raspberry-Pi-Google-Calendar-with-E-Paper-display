@@ -18,6 +18,7 @@ import urllib
 import logging
 import time
 import os
+import icalendar
 
 try:
   import recurring_ical_events
@@ -86,6 +87,19 @@ class iCalendar:
           logger.debug("using the global password")
         #logger.debug(f"password: '{password_act}'") #may contain sensitive information
 
+        #initialise variable
+        inky_prefix = ""
+        #check if there is a query string
+        if parsed_url.query:
+          #parse the query string
+          query_dict = urllib.parse.parse_qs(parsed_url.query, keep_blank_values=True)
+          #check if the prefix key is in the query dictionary
+          if "inky_prefix" in query_dict:
+            #extract the value of the prefix key
+            inky_prefix = query_dict.pop("inky_prefix").pop()
+            #update the parsed url so that it does not contain the Inkycal specific query string anymore
+            parsed_url = parsed_url._replace(query=urllib.parse.urlencode(query_dict, doseq=True))
+        
         #get parsed result without username/password (netloc just hostname)
         parsed_url_without= parsed_url._replace(netloc=parsed_url.hostname)
         #unparse url to get the original url without user/password
@@ -94,10 +108,20 @@ class iCalendar:
 
         if (username_act == None) and (password_act == None):
           #load unprotected calendar
-          ical.append(Calendar.from_ical(str(urllib.request.urlopen(u).read().decode())))
+          ical_act = Calendar.from_ical(str(urllib.request.urlopen(u).read().decode()))
         else:
           #load password protected calendar
-          ical.append(self.auth_ical(u, username_act, password_act))
+          ical_act = self.auth_ical(u, username_act, password_act)
+
+        #if prefix extracted add it to all elements
+        if inky_prefix:
+          #walk through all elements
+          for component in ical_act.walk():
+            #if it has a name add the prefix           
+            if component.get('summary'):
+              component['summary'] = icalendar.prop.vText(inky_prefix + component.get('summary'))
+
+        ical.append(ical_act)
     else:
       raise Exception (f"Input: '{url}' is not a string or list!")
 
