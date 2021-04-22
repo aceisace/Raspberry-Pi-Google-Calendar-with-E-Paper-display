@@ -14,7 +14,8 @@ Copyright by aceisace
 """
 
 import arrow
-import urllib
+import urllib.request
+import urllib.parse
 import logging
 import time
 import os
@@ -87,23 +88,17 @@ class iCalendar:
           logger.debug("using the global password")
         #logger.debug(f"password: '{password_act}'") #may contain sensitive information
 
-        #initialise variable
-        inky_prefix = ""
-        #check if there is a query string
-        if parsed_url.query:
-          #parse the query string
-          query_dict = urllib.parse.parse_qs(parsed_url.query, keep_blank_values=True)
-          #check if the prefix key is in the query dictionary
-          if "inky_prefix" in query_dict:
-            #extract the value of the prefix key
-            inky_prefix = query_dict.pop("inky_prefix").pop()
-            #update the parsed url so that it does not contain the Inkycal specific query string anymore
-            parsed_url = parsed_url._replace(query=urllib.parse.urlencode(query_dict, doseq=True))
+        #parse the fragment - it should be formated like a query string
+        fragment_dict = urllib.parse.parse_qs(parsed_url.fragment, keep_blank_values=True)
+        #extract the value of the prefix key
+        inky_prefix = fragment_dict.get("inky_prefix")
+        #remove the fragment. It shouldn't influence the following code. Removing it anyway to make sure.
+        parsed_url = parsed_url._replace(fragment="")
         
         #get parsed result without username/password (netloc just hostname)
-        parsed_url_without= parsed_url._replace(netloc=parsed_url.hostname)
+        parsed_url= parsed_url._replace(netloc=parsed_url.hostname)
         #unparse url to get the original url without user/password
-        u = urllib.parse.urlunparse(parsed_url_without)
+        u = urllib.parse.urlunparse(parsed_url)
         logger.debug(f"parsed url: '{u}'")
 
         if (username_act == None) and (password_act == None):
@@ -119,7 +114,7 @@ class iCalendar:
           for component in ical_act.walk():
             #if it has a name add the prefix           
             if component.get('summary'):
-              component['summary'] = icalendar.prop.vText(inky_prefix + component.get('summary'))
+              component['summary'] = icalendar.prop.vText(inky_prefix[0] + component.get('summary'))
 
         ical.append(ical_act)
     else:
