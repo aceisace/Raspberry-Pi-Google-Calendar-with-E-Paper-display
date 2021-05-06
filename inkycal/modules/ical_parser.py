@@ -84,19 +84,14 @@ class iCalendar:
     example: 'path1' (single file) OR ['path1', 'path2'] (multiple files)
     returns a list of iCalendars as string (raw)
     """
-    if isinstance(filepath, list):
-      for path in filepath:
-        with open(path, mode='r') as ical_file:
-          ical = (Calendar.from_ical(ical_file.read()))
-          self.icalendars += ical
-
-    elif isinstance(filepath, str):
-      with open(filepath, mode='r') as ical_file:
-        ical = (Calendar.from_ical(ical_file.read()))
-        self.icalendars += ical
+    if type(filepath) == list:
+      ical = [Calendar.from_ical(str(open(path).read())) for path in filepath]
+    elif type(filepath) == str:
+      ical = [Calendar.from_ical(str(open(filepath).read()))]
     else:
       raise Exception (f"Input: '{filepath}' is not a string or list!")
 
+    self.icalendars += ical
     logger.info('loaded iCalendars from filepaths')
 
   def get_events(self, timeline_start, timeline_end, timezone=None):
