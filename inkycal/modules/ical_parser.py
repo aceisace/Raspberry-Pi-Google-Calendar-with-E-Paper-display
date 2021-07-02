@@ -17,6 +17,7 @@ import arrow
 from urllib.request import urlopen
 import logging
 import time
+from datetime import timedelta
 import os
 
 try:
@@ -179,7 +180,7 @@ class iCalendar:
       begin, end = event['begin'], event['end']
       duration = end - begin
       if (begin.format('HH:mm') == '00:00' and end.format('HH:mm') == '00:00'
-          and duration.days >= 1):
+          and duration > timedelta(hours=12)):
         return True
       else:
         return False
