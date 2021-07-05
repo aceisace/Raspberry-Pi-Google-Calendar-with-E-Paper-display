@@ -24,7 +24,7 @@ class Agenda(inkycal_module):
 
   requires = {
     "ical_urls" : {
-      "label":"iCalendar URL/s, separate multiple ones with a comma",
+      "label":"iCalendar URL/s, separate multiple ones with a comma, e.g. http://example.com/calendar or with authentication: http://username:password@example.com/calendar. Please do not enter username/password in the WebUI. Add them afterwards in the json file manually. It is possible to add a prefix for each event. Just append a fragment (formated like a query string) to the url. e.g. http://example.com/calendar#inky_prefix=PersonA",
       },
 
     }
