@@ -110,13 +110,6 @@ class Agenda(inkycal_module):
     now = arrow.now()
     today = now.floor('day')
 
-    # Create a list of dates for the next days
-    agenda_events = [
-      {'begin':today.shift(days=+_),
-       'title': today.shift(days=+_).format(
-         self.date_format,locale=self.language)}
-      for _ in range(max_lines)]
-
     # Load icalendar from config
     self.ical = iCalendar()
     parser = self.ical
@@ -128,17 +121,22 @@ class Agenda(inkycal_module):
       parser.load_from_file(self.ical_files)
 
     # Load events from all icalendar in timerange
-    upcoming_events = parser.get_events(today, agenda_events[-1]['begin'],
+    upcoming_events = parser.get_events(today, today.shift(days=max_lines),
                                         self.timezone)
 
     # Sort events by beginning time
     parser.sort()
     #parser.show_events()
 
+    # Create a list of dates and events for the next days
+    agenda_events = {
+      today.shift(days=date_offset).format(self.date_format,locale=self.language):
+      [evt for evt in upcoming_events if
+        today.shift(days=date_offset) <= evt['begin'] < today.shift(days=date_offset+1)]
+      for date_offset in range(max_lines)}
+
     # Set the width for date, time and event titles
-    date_width = int(max([self.font.getsize(
-          dates['begin'].format(self.date_format, locale=self.language))[0]
-          for dates in agenda_events]) * 1.2)
+    date_width = int(max(self.font.getsize(date)[0] for date in agenda_events) * 1.2)
     logger.debug(f'date_width: {date_width}')
 
     # Calculate positions for each line
@@ -166,65 +164,39 @@ class Agenda(inkycal_module):
       # Calculate x-pos for event titles
       x_event = date_width + time_width
       logger.debug(f'x-event: {x_event}')
-
-      # Merge list of dates and list of events
-      agenda_events += upcoming_events
-
-      # Sort the combined list in chronological order of dates
-      by_date = lambda event: event['begin']
-      agenda_events.sort(key = by_date)
-
-      # Delete more entries than can be displayed (max lines)
-      del agenda_events[max_lines:]
-
-      self._agenda_events = agenda_events
-
-      cursor = 0
-      for _ in agenda_events:
-        title = _['title']
-
-        # Check if item is a date
-        if not 'end' in _:
-          ImageDraw.Draw(im_colour).line(
-            (0, line_pos[cursor][1], im_width, line_pos[cursor][1]),
-          fill = 'black')
-
-          write(im_black, line_pos[cursor], (date_width, line_height),
-              title, font = self.font, alignment='left')
-
-          cursor += 1
-
-        # Check if item is an event
-        if 'end' in _:
-          time = _['begin'].format(self.time_format)
-
-          # Check if event is all day, if not, add the time
-          if parser.all_day(_) == False:
-            write(im_black, (x_time, line_pos[cursor][1]),
-                (time_width, line_height), time,
-                font = self.font, alignment='left')
-
-          write(im_black, (x_event, line_pos[cursor][1]),
-                (event_width, line_height),
-                '• '+title, font = self.font, alignment='left')
-          cursor += 1
-
-    # If no events were found, write only dates and lines
     else:
       logger.info('no events found')
 
-      cursor = 0
-      for _ in agenda_events:
-        title = _['title']
-        ImageDraw.Draw(im_colour).line(
-            (0, line_pos[cursor][1], im_width, line_pos[cursor][1]),
-            fill = 'black')
+    self._agenda_events = agenda_events
 
-        write(im_black, line_pos[cursor], (date_width, line_height),
-              title, font = self.font, alignment='left')
+    cursor = 0
+    for (date_formatted, date_items) in agenda_events.items():
+      ImageDraw.Draw(im_colour).line(
+          (0, line_pos[cursor][1], im_width, line_pos[cursor][1]),
+          fill = 'black')
+      write(im_black, line_pos[cursor], (date_width, line_height),
+          date_formatted, font = self.font, alignment='left')
 
+      if not date_items:
+          cursor += 1
+      for agenda_item in date_items:
+        title = agenda_item['title']
+        time = agenda_item['begin'].format(self.time_format)
+
+        # Check if event is all day, if not, add the time
+        if parser.all_day(agenda_item) == False:
+          write(im_black, (x_time, line_pos[cursor][1]),
+              (time_width, line_height), time,
+              font = self.font, alignment='left')
+
+        write(im_black, (x_event, line_pos[cursor][1]),
+              (event_width, line_height),
+              '• '+title, font = self.font, alignment='left')
         cursor += 1
-
+        if cursor >= max_lines:
+            break
+      if cursor >= max_lines:
+          break
 
     # return the images ready for the display
     return im_black, im_colour
